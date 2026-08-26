@@ -48,7 +48,7 @@ foreach ($Language in $Languages) {
 $AssetsDir = Join-Path $ProjectRoot "assets"
 New-Item $AssetsDir -ItemType Directory -Force | Out-Null
 $FontPath = Join-Path $AssetsDir "NotoSansSC-VF.ttf"
-$FontUrl = "https://raw.githubusercontent.com/googlefonts/noto-cjk/main/Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf"
+$FontUrl = "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf"
 Invoke-WebRequest -Uri $FontUrl -OutFile $FontPath
 $RegularFontPath = Join-Path $AssetsDir "NotoSansSC-Regular.ttf"
 python scripts/prepare_fonts.py $FontPath $RegularFontPath
@@ -68,7 +68,7 @@ if (-not $LatinFontSource) {
 }
 Copy-Item $LatinFontSource.FullName $LatinFontPath -Force
 
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/googlefonts/noto-cjk/main/LICENSE" -OutFile (Join-Path $AssetsDir "LICENSE-NotoSansCJK.txt")
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/LICENSE" -OutFile (Join-Path $AssetsDir "LICENSE-NotoSansCJK.txt")
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/version_2_37/LICENSE" -OutFile (Join-Path $AssetsDir "LICENSE-DejaVuSans.txt")
 
 python -m unittest discover -s tests -v
