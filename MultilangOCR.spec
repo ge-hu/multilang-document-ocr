@@ -1,7 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
-from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_submodules
 
 
@@ -10,11 +9,11 @@ datas = []
 
 assets_dir = project_root / "assets"
 if assets_dir.is_dir():
-    datas += Tree(str(assets_dir), prefix="assets")
+    datas.append((str(assets_dir), "assets"))
 
 tesseract_dir = project_root / "vendor" / "tesseract"
 if tesseract_dir.is_dir():
-    datas += Tree(str(tesseract_dir), prefix="tesseract")
+    datas.append((str(tesseract_dir), "tesseract"))
 
 for document_name in ("使用说明.txt", "THIRD_PARTY_NOTICES.md"):
     document_path = project_root / document_name
@@ -65,4 +64,3 @@ coll = COLLECT(
     upx_exclude=[],
     name="MultilangOCR-Portable",
 )
-
