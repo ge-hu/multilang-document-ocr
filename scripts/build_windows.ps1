@@ -59,7 +59,19 @@ if (-not (Test-Path (Join-Path $PortableDir "MultilangOCR.exe"))) {
     throw "便携版构建失败：未生成MultilangOCR.exe。"
 }
 
+$SelfTestLog = Join-Path $env:TEMP "MultilangOCR-self-test.log"
+if (Test-Path $SelfTestLog) {
+    Remove-Item $SelfTestLog -Force
+}
+$SelfTest = Start-Process (Join-Path $PortableDir "MultilangOCR.exe") -ArgumentList "--self-test" -Wait -PassThru
+if ($SelfTest.ExitCode -ne 0) {
+    if (Test-Path $SelfTestLog) {
+        Get-Content $SelfTestLog
+    }
+    throw "打包后自检失败，退出代码：$($SelfTest.ExitCode)"
+}
+Write-Host "打包后OCR与A4 PDF自检通过。"
+
 $SizeBytes = (Get-ChildItem $PortableDir -Recurse -File | Measure-Object Length -Sum).Sum
 $SizeMB = [math]::Round($SizeBytes / 1MB, 1)
 Write-Host "便携版构建完成，解压后约 $SizeMB MB。"
-

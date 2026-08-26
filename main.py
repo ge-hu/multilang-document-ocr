@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import queue
+import sys
+import tempfile
 import threading
 import traceback
 from pathlib import Path
@@ -305,5 +307,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if "--self-test" in sys.argv:
+        try:
+            from multilang_ocr.self_test import run_self_test
 
+            run_self_test()
+        except Exception:
+            error_log = Path(tempfile.gettempdir()) / "MultilangOCR-self-test.log"
+            error_log.write_text(traceback.format_exc(), encoding="utf-8")
+            raise SystemExit(1)
+        raise SystemExit(0)
+    main()
