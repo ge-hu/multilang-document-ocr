@@ -1,0 +1,37 @@
+name: Build Windows Portable
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build portable app
+        shell: pwsh
+        run: ./scripts/build_windows.ps1
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: MultilangOCR-Windows-x64
+          path: dist/MultilangOCR-Portable
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
