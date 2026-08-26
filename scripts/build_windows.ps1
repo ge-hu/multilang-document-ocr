@@ -50,8 +50,29 @@ New-Item $AssetsDir -ItemType Directory -Force | Out-Null
 $FontPath = Join-Path $AssetsDir "NotoSansSC-VF.ttf"
 $FontUrl = "https://raw.githubusercontent.com/googlefonts/noto-cjk/main/Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf"
 Invoke-WebRequest -Uri $FontUrl -OutFile $FontPath
+$RegularFontPath = Join-Path $AssetsDir "NotoSansSC-Regular.ttf"
+python scripts/prepare_fonts.py $FontPath $RegularFontPath
+Remove-Item $FontPath -Force
+
+$LatinFontPath = Join-Path $AssetsDir "DejaVuSans.ttf"
+$LatinFontArchive = Join-Path $env:TEMP "dejavu-sans-ttf-2.37.zip"
+$LatinFontExtract = Join-Path $env:TEMP "dejavu-sans-ttf-2.37"
+Invoke-WebRequest -Uri "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip" -OutFile $LatinFontArchive
+if (Test-Path $LatinFontExtract) {
+    Remove-Item $LatinFontExtract -Recurse -Force
+}
+Expand-Archive -Path $LatinFontArchive -DestinationPath $LatinFontExtract -Force
+$LatinFontSource = Get-ChildItem $LatinFontExtract -Filter "DejaVuSans.ttf" -Recurse | Select-Object -First 1
+if (-not $LatinFontSource) {
+    throw "DejaVu Sans字体包中未找到DejaVuSans.ttf。"
+}
+Copy-Item $LatinFontSource.FullName $LatinFontPath -Force
+
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/googlefonts/noto-cjk/main/LICENSE" -OutFile (Join-Path $AssetsDir "LICENSE-NotoSansCJK.txt")
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/version_2_37/LICENSE" -OutFile (Join-Path $AssetsDir "LICENSE-DejaVuSans.txt")
 
 python -m unittest discover -s tests -v
+python tests/ui_smoke.py
 python -m PyInstaller --noconfirm --clean MultilangOCR.spec
 
 $PortableDir = Join-Path $ProjectRoot "dist\MultilangOCR-Portable"

@@ -10,6 +10,8 @@ This trial application bundles or depends on the following open-source projects:
 - ReportLab Community Edition — BSD License
 - tkinterdnd2 — MIT License
 - Noto Sans CJK — SIL Open Font License 1.1
+- DejaVu Sans — Bitstream Vera license with DejaVu changes in the public domain
 - PyInstaller — GPL 2.0 with a special exception for distributing bundled applications
+- fontTools — MIT License (used during the build to create the regular-weight bundled font)
 
 Before commercial distribution, review all dependency licenses and retain their required notices. This file is informational and is not legal advice.

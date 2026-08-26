@@ -1,9 +1,11 @@
 __pycache__/
 *.py[cod]
 .venv/
+assets/*.ttf
+assets/*.otf
+vendor/
 build/
 dist/
-vendor/
-assets/*.ttf
-*.spec.bak
-
+tmp/
+output/
+*.zip

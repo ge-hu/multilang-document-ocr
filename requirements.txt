@@ -4,3 +4,4 @@ pypdfium2>=4,<6
 reportlab>=4,<5
 tkinterdnd2>=0.4.3,<1
 pyinstaller>=6.10,<7
+fonttools>=4.50,<5

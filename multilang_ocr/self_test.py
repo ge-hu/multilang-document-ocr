@@ -25,6 +25,8 @@ def run_self_test() -> None:
         raise RuntimeError("自检失败：缺少语言包 " + ", ".join(missing))
 
     font_candidates = [
+        resource_path("assets", "DejaVuSans.ttf"),
+        resource_path("assets", "NotoSansSC-Regular.ttf"),
         resource_path("assets", "NotoSansSC-VF.ttf"),
         Path("C:/Windows/Fonts/arial.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
@@ -44,7 +46,7 @@ def run_self_test() -> None:
     with tempfile.TemporaryDirectory(prefix="multilang_ocr_self_test_") as folder:
         output = Path(folder) / "a4-test.pdf"
         export_a4_pdf(
-            "简体中文：安全说明\n\nRomână: Instrucțiuni\n\nБългарски: Инструкции",
+            "简体中文：安全说明\n\nPolski: włączyć przycisk\n\nTürkçe: Ürünün sıcaklığı\n\nRomână: Instrucțiuni\n\nБългарски: Инструкции",
             output,
             font_size=5.5,
             margin_mm=8.0,
@@ -52,4 +54,3 @@ def run_self_test() -> None:
         document = PdfReader(str(output))
         if not output.is_file() or output.stat().st_size < 1000 or len(document.pages) != 1:
             raise RuntimeError("自检失败：A4 PDF导出异常。")
-
