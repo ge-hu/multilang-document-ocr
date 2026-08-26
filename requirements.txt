@@ -1,0 +1,6 @@
+Pillow>=10,<13
+pypdf>=5,<7
+pypdfium2>=4,<6
+reportlab>=4,<5
+tkinterdnd2>=0.4.3,<1
+pyinstaller>=6.10,<7
