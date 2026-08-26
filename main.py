@@ -121,7 +121,9 @@ class OCRApp:
         self.editor.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         bottom = ttk.Frame(outer)
-        bottom.pack(fill=tk.X, pady=(8, 0))
+        self.action_bar = bottom
+        # 操作栏优先于可伸缩编辑区布局，低分辨率或高缩放时也始终可见。
+        bottom.pack(fill=tk.X, pady=(8, 0), before=editor_box)
         self.progress = ttk.Progressbar(bottom, mode="determinate", length=250)
         self.progress.pack(side=tk.LEFT)
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=8)
