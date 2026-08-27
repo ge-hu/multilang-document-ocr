@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
 project_root = Path(SPECPATH)
 datas = []
+datas += collect_data_files("langdetect")
 
 assets_dir = project_root / "assets"
 if assets_dir.is_dir():

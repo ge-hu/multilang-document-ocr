@@ -16,6 +16,12 @@ def main() -> None:
         "Polski: włączyć przycisk.\n\nTürkçe: Ürünün sıcaklığı.\n\n简体中文：安全说明。",
         reflow=False,
     )
+    assert len(app.layout_editor.blocks) == 3
+    app.layout_editor.actual_preview_size()
+    assert app.layout_editor._preview_zoom_mode == "manual"
+    assert app.layout_editor._preview_zoom == 1.0
+    app.layout_editor.fit_preview_page()
+    assert app.layout_editor._preview_zoom_mode == "fit"
     root.update_idletasks()
     app._on_close()
 

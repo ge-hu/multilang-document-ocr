@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pypdf import PdfReader
 
 from .languages import LANGUAGES
+from .layout import split_text_into_blocks
 from .ocr_engine import OCRSettings, _run_tesseract
 from .pdf_export import export_a4_pdf
 from .runtime import available_language_codes, find_tessdata, find_tesseract, resource_path
@@ -23,6 +24,15 @@ def run_self_test() -> None:
     missing = sorted(required - available)
     if missing:
         raise RuntimeError("自检失败：缺少语言包 " + ", ".join(missing))
+
+    grouped = split_text_into_blocks(
+        "Polski: Włącz urządzenie.\n\nPolski: Naciśnij przycisk.\n\n"
+        "Türkçe: Cihazı açın.\n\nTürkçe: Düğmeye basın.",
+        reflow=True,
+        group_by_language=True,
+    )
+    if len(grouped) != 2:
+        raise RuntimeError("自检失败：离线语言分组组件未正确加载。")
 
     font_candidates = [
         resource_path("assets", "DejaVuSans.ttf"),

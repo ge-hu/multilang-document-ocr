@@ -53,6 +53,10 @@ class LayoutEditor(ttk.Frame):
         self.selection_text = tk.StringVar(value="未选择文字框")
         self.page_text = tk.StringVar(value="第 1 / 1 页")
         self.preview_note = tk.StringVar(value="编辑文字或排版参数后自动刷新")
+        self.zoom_text = tk.StringVar(value="适合整页")
+        self._preview_zoom_mode = "fit"
+        self._preview_zoom = 1.0
+        self._center_after_zoom = False
 
         self._text_guard = False
         self._editing_block_id: str | None = None
@@ -141,6 +145,7 @@ class LayoutEditor(ttk.Frame):
         ttk.Button(block_actions, text="新增", command=self.add_block).pack(side=tk.LEFT)
         ttk.Button(block_actions, text="按空行拆分", command=self.split_selected).pack(side=tk.LEFT, padx=(4, 0))
         ttk.Button(block_actions, text="合并选中", command=self.merge_selected).pack(side=tk.LEFT, padx=(4, 0))
+        ttk.Button(block_actions, text="按语言合并", command=self.regroup_by_language).pack(side=tk.LEFT, padx=(4, 0))
         ttk.Button(block_actions, text="整理OCR换行", command=self.reflow_selected).pack(side=tk.LEFT, padx=(4, 0))
 
         ttk.Label(left, textvariable=self.selection_text, foreground="#1D4ED8").pack(fill=tk.X)
@@ -159,16 +164,33 @@ class LayoutEditor(ttk.Frame):
         ttk.Button(preview_nav, text="◀ 上一页", command=lambda: self.change_page(-1)).pack(side=tk.LEFT)
         ttk.Label(preview_nav, textvariable=self.page_text).pack(side=tk.LEFT, padx=8)
         ttk.Button(preview_nav, text="下一页 ▶", command=lambda: self.change_page(1)).pack(side=tk.LEFT)
+        ttk.Separator(preview_nav, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=8)
+        ttk.Button(preview_nav, text="−", width=3, command=lambda: self.change_zoom(-0.25)).pack(side=tk.LEFT)
+        ttk.Label(preview_nav, textvariable=self.zoom_text, width=9, anchor=tk.CENTER).pack(side=tk.LEFT, padx=3)
+        ttk.Button(preview_nav, text="＋", width=3, command=lambda: self.change_zoom(0.25)).pack(side=tk.LEFT)
+        ttk.Button(preview_nav, text="适合整页", command=self.fit_preview_page).pack(side=tk.LEFT, padx=(6, 3))
+        ttk.Button(preview_nav, text="100%", command=self.actual_preview_size).pack(side=tk.LEFT)
         ttk.Label(preview_nav, textvariable=self.preview_note, foreground="#166534").pack(side=tk.RIGHT)
 
         self.preview_host = ttk.Frame(right)
         self.preview_host.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         self.preview_canvas = tk.Canvas(self.preview_host, background="#D6D9DE", highlightthickness=0, cursor="arrow")
-        self.preview_canvas.pack(fill=tk.BOTH, expand=True)
+        self.preview_vscroll = ttk.Scrollbar(self.preview_host, orient=tk.VERTICAL, command=self.preview_canvas.yview)
+        self.preview_hscroll = ttk.Scrollbar(self.preview_host, orient=tk.HORIZONTAL, command=self.preview_canvas.xview)
+        self.preview_canvas.configure(
+            xscrollcommand=self.preview_hscroll.set,
+            yscrollcommand=self.preview_vscroll.set,
+        )
+        self.preview_vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.preview_hscroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.preview_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.preview_canvas.bind("<Configure>", lambda _event: self._paint_preview())
         self.preview_canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.preview_canvas.bind("<B1-Motion>", self._on_canvas_motion)
         self.preview_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.preview_canvas.bind("<Control-MouseWheel>", self._on_zoom_wheel)
+        self.preview_canvas.bind("<MouseWheel>", self._on_preview_wheel)
+        self.preview_canvas.bind("<Shift-MouseWheel>", self._on_preview_horizontal_wheel)
 
         self.float_bar = tk.Frame(self.preview_host, background="#1F2937", padx=5, pady=4, bd=0)
         self.float_label = tk.Label(self.float_bar, text="", foreground="white", background="#1F2937")
@@ -223,7 +245,12 @@ class LayoutEditor(ttk.Frame):
         ).normalized()
 
     def load_text(self, text: str, *, reflow: bool = True) -> None:
-        self.blocks = split_text_into_blocks(text, reflow=reflow, default_width_units=WIDTH_AUTO)
+        self.blocks = split_text_into_blocks(
+            text,
+            reflow=reflow,
+            group_by_language=True,
+            default_width_units=WIDTH_AUTO,
+        )
         self._preview_page = 0
         self._refresh_tree()
         if self.blocks:
@@ -233,6 +260,23 @@ class LayoutEditor(ttk.Frame):
         self._on_tree_selection()
         self._schedule_preview()
         self.status_callback(f"已生成 {len(self.blocks)} 个可编辑内容块。")
+
+    def regroup_by_language(self) -> None:
+        self._commit_editor()
+        grouped = split_text_into_blocks(
+            blocks_to_text(self.blocks),
+            reflow=True,
+            group_by_language=True,
+            default_width_units=WIDTH_AUTO,
+        )
+        if not grouped:
+            return
+        self.blocks = grouped
+        self._preview_page = 0
+        self._refresh_tree([grouped[0].block_id])
+        self._on_tree_selection()
+        self._schedule_preview()
+        self.status_callback(f"已按连续语言重新合并为 {len(grouped)} 个内容块。")
 
     def get_text(self) -> str:
         self._commit_editor()
@@ -493,6 +537,46 @@ class LayoutEditor(ttk.Frame):
         self._preview_page = page
         self._schedule_preview(delay=30)
 
+    @staticmethod
+    def _preview_base_width() -> float:
+        # 100% is A4 rendered at the usual 96 screen pixels per inch.
+        return A4[0] / 72.0 * 96.0
+
+    def change_zoom(self, delta: float) -> None:
+        if self._preview_zoom_mode == "fit":
+            current = self._preview_size[0] / self._preview_base_width()
+        else:
+            current = self._preview_zoom
+        self._preview_zoom = min(3.0, max(0.25, round((current + delta) * 4.0) / 4.0))
+        self._preview_zoom_mode = "manual"
+        self._center_after_zoom = True
+        self._paint_preview()
+
+    def fit_preview_page(self) -> None:
+        self._preview_zoom_mode = "fit"
+        self._center_after_zoom = False
+        self._paint_preview()
+
+    def actual_preview_size(self) -> None:
+        self._preview_zoom_mode = "manual"
+        self._preview_zoom = 1.0
+        self._center_after_zoom = True
+        self._paint_preview()
+
+    def _on_zoom_wheel(self, event):
+        self.change_zoom(0.25 if event.delta > 0 else -0.25)
+        return "break"
+
+    def _on_preview_wheel(self, event):
+        units = -1 if event.delta > 0 else 1
+        self.preview_canvas.yview_scroll(units * 3, "units")
+        return "break"
+
+    def _on_preview_horizontal_wheel(self, event):
+        units = -1 if event.delta > 0 else 1
+        self.preview_canvas.xview_scroll(units * 3, "units")
+        return "break"
+
     def _schedule_preview(self, *_args, delay: int = 350) -> None:
         self._preview_revision += 1
         self._preview_dirty = True
@@ -536,7 +620,7 @@ class LayoutEditor(ttk.Frame):
         bitmap = None
         try:
             page = document[page_index]
-            bitmap = page.render(scale=1.55)
+            bitmap = page.render(scale=2.5)
             return bitmap.to_pil().convert("RGB").copy()
         finally:
             if bitmap is not None:
@@ -584,14 +668,23 @@ class LayoutEditor(ttk.Frame):
         height = max(100, canvas_widget.winfo_height())
         padding = 14
         page_ratio = A4[0] / A4[1]
-        available_w = max(40, width - 2 * padding)
-        available_h = max(40, height - 2 * padding)
-        display_w = min(available_w, available_h * page_ratio)
-        display_h = display_w / page_ratio
-        origin_x = (width - display_w) / 2
-        origin_y = (height - display_h) / 2
+        if self._preview_zoom_mode == "fit":
+            available_w = max(40, width - 2 * padding)
+            available_h = max(40, height - 2 * padding)
+            display_w = min(available_w, available_h * page_ratio)
+            display_h = display_w / page_ratio
+            self._preview_zoom = display_w / self._preview_base_width()
+        else:
+            display_w = self._preview_base_width() * self._preview_zoom
+            display_h = display_w / page_ratio
+        content_w = max(width, display_w + 2 * padding)
+        content_h = max(height, display_h + 2 * padding)
+        origin_x = (content_w - display_w) / 2
+        origin_y = (content_h - display_h) / 2
         self._preview_origin = (origin_x, origin_y)
         self._preview_size = (display_w, display_h)
+        canvas_widget.configure(scrollregion=(0, 0, content_w, content_h))
+        self.zoom_text.set(f"{round(self._preview_zoom * 100)}%")
         canvas_widget.create_rectangle(
             origin_x + 3,
             origin_y + 4,
@@ -629,6 +722,13 @@ class LayoutEditor(ttk.Frame):
             )
             if active and len(selected) == 1:
                 canvas_widget.create_rectangle(x2 - 5, y2 - 5, x2 + 5, y2 + 5, fill="#2563EB", outline="white")
+        if self._preview_zoom_mode == "fit":
+            canvas_widget.xview_moveto(0)
+            canvas_widget.yview_moveto(0)
+        elif self._center_after_zoom:
+            canvas_widget.xview_moveto(max(0.0, (content_w - width) / 2.0 / max(1.0, content_w)))
+            canvas_widget.yview_moveto(max(0.0, (content_h - height) / 2.0 / max(1.0, content_h)))
+            self._center_after_zoom = False
         self._show_float_bar()
 
     def _display_boxes(self) -> list[RenderedBox]:
@@ -671,7 +771,9 @@ class LayoutEditor(ttk.Frame):
         return None, False
 
     def _on_canvas_press(self, event) -> None:
-        box, resize = self._hit_test(event.x, event.y)
+        canvas_x = self.preview_canvas.canvasx(event.x)
+        canvas_y = self.preview_canvas.canvasy(event.y)
+        box, resize = self._hit_test(canvas_x, canvas_y)
         ctrl = bool(event.state & 0x0004)
         if not box:
             if not ctrl:
@@ -689,7 +791,7 @@ class LayoutEditor(ttk.Frame):
         self.block_tree.focus(box.block_id)
         self.block_tree.see(box.block_id)
         self._on_tree_selection()
-        self._drag_origin = (event.x, event.y)
+        self._drag_origin = (canvas_x, canvas_y)
         self._drag_moved = False
         self._drag_source_ids = self._selected_ids()
         if self.settings().layout_mode == "free":
@@ -712,8 +814,10 @@ class LayoutEditor(ttk.Frame):
     def _on_canvas_motion(self, event) -> None:
         if not self._drag_origin or not self._drag_action:
             return
-        dx_pixels = event.x - self._drag_origin[0]
-        dy_pixels = event.y - self._drag_origin[1]
+        canvas_x = self.preview_canvas.canvasx(event.x)
+        canvas_y = self.preview_canvas.canvasy(event.y)
+        dx_pixels = canvas_x - self._drag_origin[0]
+        dy_pixels = canvas_y - self._drag_origin[1]
         if abs(dx_pixels) + abs(dy_pixels) > 4:
             self._drag_moved = True
         if self._drag_action not in {"move", "resize"}:
@@ -751,7 +855,9 @@ class LayoutEditor(ttk.Frame):
                 self.status_callback("文字框不能重叠，已恢复拖动前的位置。")
             self._schedule_preview(delay=40)
         elif action == "reorder" and self._drag_moved:
-            target, _ = self._hit_test(event.x, event.y)
+            canvas_x = self.preview_canvas.canvasx(event.x)
+            canvas_y = self.preview_canvas.canvasy(event.y)
+            target, _ = self._hit_test(canvas_x, canvas_y)
             if target and target.block_id not in self._drag_source_ids:
                 self._reorder_before(self._drag_source_ids, target.block_id)
         self._drag_origin = None

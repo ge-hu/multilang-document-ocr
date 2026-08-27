@@ -7,7 +7,14 @@ from pathlib import Path
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
 
-from multilang_ocr.layout import LayoutBlock, LayoutSettings, WIDTH_FULL, WIDTH_HALF, reflow_ocr_text
+from multilang_ocr.layout import (
+    LayoutBlock,
+    LayoutSettings,
+    WIDTH_FULL,
+    WIDTH_HALF,
+    reflow_ocr_text,
+    split_text_into_blocks,
+)
 from multilang_ocr.ocr_engine import OCRSettings, compose_text, extract_paths
 from multilang_ocr.pdf_export import export_a4_pdf, export_layout_pdf
 
@@ -104,6 +111,30 @@ class CoreTests(unittest.TestCase):
         result = reflow_ocr_text(source)
         self.assertIn("the original PDF", result)
         self.assertIn("1. First step\n2. Second step", result)
+
+    def test_language_grouping_merges_same_language_sentences(self) -> None:
+        source = (
+            "Aby włączyć tryb grzewczy, przytrzymaj przycisk zasilania.\n\n"
+            "Wskaźnik zapali się na czerwono.\n\n"
+            "Güç bankası dahil değildir.\n\n"
+            "Yalnızca 5V 2A güç bankası veya adaptörü kullanın."
+        )
+        blocks = split_text_into_blocks(source, reflow=True, group_by_language=True)
+        self.assertEqual(len(blocks), 2)
+        self.assertIn("Wskaźnik", blocks[0].text)
+        self.assertIn("Yalnızca", blocks[1].text)
+
+    def test_language_grouping_detects_sections_without_blank_lines(self) -> None:
+        source = (
+            "Käyttöohje\nLangaton yhteys käyttäjille\nOdota yhteyden muodostumista.\n"
+            "Εγχειρίδιο Χρήστη\nΑσύρματη σύνδεση για χρήστες\nΠεριμένετε τη σύνδεση.\n"
+            "Lietotāja rokasgrāmata\nBezvadu savienojums lietotājiem\nLūdzu, uzgaidiet."
+        )
+        blocks = split_text_into_blocks(source, reflow=True, group_by_language=True)
+        self.assertEqual(len(blocks), 3)
+        self.assertIn("Käyttöohje", blocks[0].text)
+        self.assertIn("Εγχειρίδιο", blocks[1].text)
+        self.assertIn("Lietotāja", blocks[2].text)
 
 
 if __name__ == "__main__":

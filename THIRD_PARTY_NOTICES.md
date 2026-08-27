@@ -13,5 +13,6 @@ This trial application bundles or depends on the following open-source projects:
 - DejaVu Sans — Bitstream Vera license with DejaVu changes in the public domain
 - PyInstaller — GPL 2.0 with a special exception for distributing bundled applications
 - fontTools — MIT License (used during the build to create the regular-weight bundled font)
+- langdetect — Apache License 2.0 (used for offline language grouping)
 
 Before commercial distribution, review all dependency licenses and retain their required notices. This file is informational and is not legal advice.

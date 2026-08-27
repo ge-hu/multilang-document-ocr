@@ -5,3 +5,4 @@ reportlab>=4,<5
 tkinterdnd2>=0.4.3,<1
 pyinstaller>=6.10,<7
 fonttools>=4.50,<5
+langdetect>=1.0.9,<2
