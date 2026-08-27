@@ -50,9 +50,11 @@ class OCRApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         window_width = max(960, min(1240, screen_width - 40))
-        window_height = max(680, min(860, screen_height - 80))
+        # Windows display scaling can make the reported usable height much smaller.
+        # Keep the window inside the screen so the fixed action areas are never clipped.
+        window_height = max(560, min(860, screen_height - 80))
         self.root.geometry(f"{window_width}x{window_height}")
-        self.root.minsize(960, 680)
+        self.root.minsize(960, 560)
         self.root.option_add("*Font", ("Microsoft YaHei UI", 9))
 
         style = ttk.Style(self.root)
@@ -63,12 +65,23 @@ class OCRApp:
         outer = ttk.Frame(self.root, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        toolbar = ttk.Frame(outer)
-        toolbar.pack(fill=tk.X)
-        ttk.Button(toolbar, text="添加文件", command=self._choose_files).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="删除选中", command=self._remove_selected).pack(side=tk.LEFT, padx=(6, 0))
-        ttk.Button(toolbar, text="清空文件", command=self._clear_files).pack(side=tk.LEFT, padx=(6, 0))
-        ttk.Label(toolbar, text="支持 PDF / JPG / PNG；文件仅在本机处理", foreground="#166534").pack(side=tk.RIGHT)
+        self.top_toolbar = ttk.Frame(outer)
+        self.top_toolbar.pack(fill=tk.X)
+        ttk.Button(self.top_toolbar, text="添加文件", command=self._choose_files).pack(side=tk.LEFT)
+        ttk.Button(self.top_toolbar, text="删除选中", command=self._remove_selected).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(self.top_toolbar, text="清空文件", command=self._clear_files).pack(side=tk.LEFT, padx=(6, 0))
+        self.start_button = ttk.Button(
+            self.top_toolbar,
+            text="▶ 开始识别",
+            style="Accent.TButton",
+            command=self._start,
+        )
+        self.start_button.pack(side=tk.RIGHT)
+        ttk.Label(
+            self.top_toolbar,
+            text="支持 PDF / JPG / PNG；文件仅在本机处理",
+            foreground="#166534",
+        ).pack(side=tk.RIGHT, padx=(0, 10))
 
         self.tabs = ttk.Notebook(outer)
         self.tabs.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
@@ -134,8 +147,6 @@ class OCRApp:
         ttk.Label(bottom, textvariable=self.status).pack(side=tk.LEFT, padx=8)
         self.cancel_button = ttk.Button(bottom, text="取消", command=self._cancel, state=tk.DISABLED)
         self.cancel_button.pack(side=tk.RIGHT)
-        self.start_button = ttk.Button(bottom, text="开始提取", style="Accent.TButton", command=self._start)
-        self.start_button.pack(side=tk.RIGHT, padx=(6, 0))
         ttk.Button(bottom, text="导出PDF", command=self._export_pdf).pack(side=tk.RIGHT, padx=(6, 0))
         ttk.Button(bottom, text="导出TXT", command=self._export_txt).pack(side=tk.RIGHT)
         ttk.Button(bottom, text="打开排版预览", command=lambda: self.tabs.select(self.layout_tab)).pack(side=tk.RIGHT, padx=(0, 6))
